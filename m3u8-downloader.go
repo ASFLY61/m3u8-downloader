@@ -169,6 +169,10 @@ func getM3u8Key(host, html string) (key string) {
 	key = ""
 	for _, line := range lines {
 		if strings.Contains(line, "#EXT-X-KEY") {
+			if !strings.Contains(line, "URI") {
+				continue
+			}
+			fmt.Println("[debug] line_key:",line)
 			uri_pos := strings.Index(line, "URI")
 			quotation_mark_pos := strings.LastIndex(line, "\"")
 			key_url := strings.Split(line[uri_pos:quotation_mark_pos], "\"")[1]
@@ -179,9 +183,11 @@ func getM3u8Key(host, html string) (key string) {
 			checkErr(err)
 			if res.StatusCode == 200 {
 				key = res.String()
+				break
 			}
 		}
 	}
+	fmt.Println("[debug] m3u8Host:",host,"m3u8Key:",key)
 	return
 }
 
@@ -220,6 +226,9 @@ func getFromFile() string {
 // 下载ts文件
 // @modify: 2020-08-13 修复ts格式SyncByte合并不能播放问题
 func downloadTsFile(ts TsInfo, download_dir, key string, retries int) {
+	if retries <= 0 {
+		return
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			//fmt.Println("网络不稳定，正在进行断点持续下载")
@@ -279,7 +288,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int) {
 
 // downloader m3u8 下载器
 func downloader(tsList []TsInfo, maxGoroutines int, downloadDir string, key string) {
-	retry := 5 //单个 ts 下载重试次数
+	retry := 5 //单个ts 下载重试次数
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, maxGoroutines) //chan struct 内存占用 0 bool 占用 1
 	tsLen := len(tsList)
